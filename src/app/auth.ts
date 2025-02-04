@@ -7,16 +7,17 @@ import Google from "next-auth/providers/google";
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [Google],
   callbacks: {
-    async signIn({ user: { id, name, email, image }, profile }) {
-      const existingUser = await client.fetch(AUTHOR_QUERY_BY_ID, { id: profile?.sub || id });
+    async signIn({ user: { id, name, email, image } }) {
+      const existingUser = await client
+        .withConfig({ useCdn: false })
+        .fetch(AUTHOR_QUERY_BY_ID, { id });
       if (existingUser) {
         return true;
       }
-      console.log(id, "existingUser", profile);
       if (!existingUser) {
         await writeClient.create({
           _type: "author",
-          id: profile?.sub || id,
+          id,
           name,
           email,
           image,
@@ -25,21 +26,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return true;
     },
-    async jwt({ token, account }) {
+    async jwt({ token }) {
       if (token) {
-        console.log(token, "token", account);
-        const user = await client.fetch(AUTHOR_QUERY_BY_ID, {
-          id: token?.sub,
-        });
-        console.log(user, "user");
-        
+        const user = await client
+          .withConfig({ useCdn: false })
+          .fetch(AUTHOR_QUERY_BY_ID, {
+            id: token?.sub,
+          });
         token.id = user?._id;
       }
       return token;
     },
+
     async session({ session, token }) {
-      console.log(token,'token');
-      
       Object.assign(session, { id: token.id });
       return session;
     },
